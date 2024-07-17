@@ -326,13 +326,13 @@ CONFIG_SCHEMA = cv.Schema(
             device_class=DEVICE_CLASS_TEMPERATURE,
             state_class=STATE_CLASS_MEASUREMENT,
         ),
-        cv.Optional(CONF_TEMPERATURE_7): sensor.sensor_schema(
-            unit_of_measurement=UNIT_CELSIUS,
-            icon=ICON_EMPTY,
-            accuracy_decimals=0,
-            device_class=DEVICE_CLASS_TEMPERATURE,
-            state_class=STATE_CLASS_MEASUREMENT,
-        ),
+        # cv.Optional(CONF_TEMPERATURE_7): sensor.sensor_schema(
+        #     unit_of_measurement=UNIT_CELSIUS,
+        #     icon=ICON_EMPTY,
+        #     accuracy_decimals=0,
+        #     device_class=DEVICE_CLASS_TEMPERATURE,
+        #     state_class=STATE_CLASS_MEASUREMENT,
+        # ),
         cv.Optional(CONF_TOTAL_VOLTAGE): sensor.sensor_schema(
             unit_of_measurement=UNIT_VOLT,
             icon=ICON_EMPTY,
