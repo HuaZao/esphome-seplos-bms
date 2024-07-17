@@ -29,7 +29,11 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
 
   ESP_LOGI(TAG, "Telemetry frame (%d bytes) received", data.size());
   ESP_LOGVV(TAG, "  %s", format_hex_pretty(&data.front(), data.size()).c_str());
-
+  // 21004600D07C01
+  0F //7
+  0C 99 0C 98 0C 99 0C 99 0C 99 0C 9B 0C 99 0C 93 0C 9C 0C 9C 0C 87 0C 98 0C 9B 0C 9A 0C 97
+  07 //38
+  0C000C000BFA0BFE0C1C0C020BFEFF3E12E401BE042710000204640000E220
   // Byte   Address Content: Description                      Decoded content               Coeff./Unit
   //   0    0x21             Protocol version      VER        2.1
   //   1    0x00             Device address        ADR        0
@@ -39,12 +43,12 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   //   5    0x7C             Data length           LENID      124 / 2 = 62
   //   6    0x01             Command group
   //   7    0x0F             Cells
-  //   8 ~ 38  0C DF 0C DD 0C DF 0C DE 0C DF 0C DF 0C DE 0C DE 0C E0 0C DD 0C D8 0C DC 0C E2 0C DE 0C DE Cell 1 ~ 15  
-  //   39  0x07              Temperature Count
-  //   40~54  0C 06 0C 05 0C 02 0C 03 0C 2A 0C 10 0C 0E Temperature 1~7   eg: (3078 - 2731) * 0.1f = 34.7  eg: (3086 - 2731) * 0.1f = 35.5 
-  // 55~56  0x01 0xFD        Charge/discharge current      509 * 0.01f = 5.09A
-  // 57~58  0x13 0x4D        Total battery voltage         4941 * 0.01f = 49.41V
-  // 59~60  0x4D 0x09        Residual capacity             19721 * 0.01f = 197.21Ah
+  //   8 ~ 37  0C DF 0C DD 0C DF 0C DE 0C DF 0C DF 0C DE 0C DE 0C E0 0C DD 0C D8 0C DC 0C E2 0C DE 0C DE Cell 1 ~ 15  
+  //   38  0x07              Temperature Count
+  //   39~52  0C06 0C05 0C02 0C03 0C2A 0C10 0C0E Temperature 1~7   eg: (3078 - 2731) * 0.1f = 34.7  eg: (3086 - 2731) * 0.1f = 35.5 
+  //   53~54  0x01 0xFD        Charge/discharge current      509 * 0.01f = 5.09A
+  //   55~56  0x13 0x4D        Total battery voltage         4941 * 0.01f = 49.41V
+  //   57~58  0x4D 0x09        Residual capacity             19721 * 0.01f = 197.21Ah
  
    // 4D 09 65 04 27 10 00 02 18 64 00 00 E1 9A
   // *Data*
@@ -86,22 +90,24 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   this->publish_state_(this->delta_cell_voltage_sensor_, max_cell_voltage - min_cell_voltage);
   this->publish_state_(this->average_cell_voltage_sensor_, average_cell_voltage);
 
-  uint8_t offset = 9 + (cells * 2);
+  uint8_t offset = 8 + (cells * 2);  //38
 
-  //   41     0x06           Number of temperatures           6                             V
+  //   38     0x07           Number of temperatures          7                            V
   uint8_t temperature_sensors = data[offset];
   ESP_LOGV(TAG, "Number of temperature sensors: %d", temperature_sensors);
 
-  //   42     0x0B 0xA6      Temperature sensor 1             (2982 - 2731) * 0.1f = 25.1          °C
-  //   44     0x0B 0xA0      Temperature sensor 2             (2976 - 2731) * 0.1f = 24.5          °C
-  //   46     0x0B 0x97      Temperature sensor 3             (2967 - 2731) * 0.1f = 23.6          °C
-  //   48     0x0B 0xA6      Temperature sensor 4             (2982 - 2731) * 0.1f = 25.1          °C
-  //   50     0x0B 0xA5      Environment temperature          (2981 - 2731) * 0.1f = 25.0          °C
-  //   52     0x0B 0xA2      Mosfet temperature               (2978 - 2731) * 0.1f = 24.7          °C
-  for (uint8_t i = 0; i < std::min((uint8_t) 7, temperature_sensors); i++) {
-    float raw_temperature = (float) seplos_get_16bit(offset + 1 + (i * 2));
+  //   39     0x0B 0xA6      Temperature sensor 1             (2982 - 2731) * 0.1f = 25.1          °C
+  //   41     0x0B 0xA0      Temperature sensor 2             (2976 - 2731) * 0.1f = 24.5          °C
+  //   43     0x0B 0x97      Temperature sensor 3             (2967 - 2731) * 0.1f = 23.6          °C
+  //   45     0x0B 0xA6      Temperature sensor 4             (2982 - 2731) * 0.1f = 25.1          °C
+  //   47     0x0B 0xA5      Environment temperature          (2981 - 2731) * 0.1f = 25.0          °C
+  //   49     0x0B 0xA2      Mosfet temperature               (2978 - 2731) * 0.1f = 24.7          °C
+  //   51     0x0B 0xA2      Mosfet temperature               (2978 - 2731) * 0.1f = 24.7          °C
+  for (uint8_t i = 0; i < std::min((uint8_t) 6, temperature_sensors); i++) { 
+    float raw_temperature = (float) seplos_get_16bit(offset + (i * 2));
     this->publish_state_(this->temperatures_[i].temperature_sensor_, (raw_temperature - 2731.0f) * 0.1f);
   }
+  38 + 1 + 14
   offset = offset + 1 + (temperature_sensors * 2);
 
   //   54     0xFD 0x5C      Charge/discharge current         signed int?                   A
