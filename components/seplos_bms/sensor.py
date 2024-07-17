@@ -61,7 +61,7 @@ CONF_CELL_VOLTAGE_12 = "cell_voltage_12"
 CONF_CELL_VOLTAGE_13 = "cell_voltage_13"
 CONF_CELL_VOLTAGE_14 = "cell_voltage_14"
 CONF_CELL_VOLTAGE_15 = "cell_voltage_15"
-# CONF_CELL_VOLTAGE_16 = "cell_voltage_16"
+CONF_CELL_VOLTAGE_16 = "cell_voltage_16"
 
 CONF_TEMPERATURE_1 = "temperature_1"
 CONF_TEMPERATURE_2 = "temperature_2"
@@ -99,7 +99,7 @@ CELLS = [
     CONF_CELL_VOLTAGE_13,
     CONF_CELL_VOLTAGE_14,
     CONF_CELL_VOLTAGE_15,
-    # CONF_CELL_VOLTAGE_16,
+    CONF_CELL_VOLTAGE_16,
 ]
 
 TEMPERATURES = [
@@ -284,13 +284,13 @@ CONFIG_SCHEMA = cv.Schema(
             device_class=DEVICE_CLASS_VOLTAGE,
             state_class=STATE_CLASS_MEASUREMENT,
         ),
-        # cv.Optional(CONF_CELL_VOLTAGE_16): sensor.sensor_schema(
-        #     unit_of_measurement=UNIT_VOLT,
-        #     icon=ICON_EMPTY,
-        #     accuracy_decimals=3,
-        #     device_class=DEVICE_CLASS_VOLTAGE,
-        #     state_class=STATE_CLASS_MEASUREMENT,
-        # ),
+        cv.Optional(CONF_CELL_VOLTAGE_16): sensor.sensor_schema(
+            unit_of_measurement=UNIT_VOLT,
+            icon=ICON_EMPTY,
+            accuracy_decimals=3,
+            device_class=DEVICE_CLASS_VOLTAGE,
+            state_class=STATE_CLASS_MEASUREMENT,
+        ),
         cv.Optional(CONF_TEMPERATURE_1): sensor.sensor_schema(
             unit_of_measurement=UNIT_CELSIUS,
             icon=ICON_EMPTY,
@@ -416,13 +416,13 @@ CONFIG_SCHEMA = cv.Schema(
             device_class=DEVICE_CLASS_EMPTY,
             state_class=STATE_CLASS_MEASUREMENT,
         ),
-        # cv.Optional(CONF_PORT_VOLTAGE): sensor.sensor_schema(
-        #     unit_of_measurement=UNIT_VOLT,
-        #     icon=ICON_EMPTY,
-        #     accuracy_decimals=2,
-        #     device_class=DEVICE_CLASS_VOLTAGE,
-        #     state_class=STATE_CLASS_MEASUREMENT,
-        # ),
+        cv.Optional(CONF_PORT_VOLTAGE): sensor.sensor_schema(
+            unit_of_measurement=UNIT_VOLT,
+            icon=ICON_EMPTY,
+            accuracy_decimals=2,
+            device_class=DEVICE_CLASS_VOLTAGE,
+            state_class=STATE_CLASS_MEASUREMENT,
+        ),
     }
 )
 
