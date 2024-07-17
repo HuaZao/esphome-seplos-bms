@@ -100,7 +100,7 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   //   49     0x0B 0xA2      Mosfet temperature               (2978 - 2731) * 0.1f = 24.7          °C
   //   51     0x0B 0xA2      Mosfet temperature               (2978 - 2731) * 0.1f = 24.7          °C
   for (uint8_t i = 0; i < std::min((uint8_t) 6, temperature_sensors); i++) { 
-    float raw_temperature = (float) seplos_get_16bit(offset + (i * 2));
+    float raw_temperature = (float) seplos_get_16bit(offset + 1 + (i * 2));
     this->publish_state_(this->temperatures_[i].temperature_sensor_, (raw_temperature - 2731.0f) * 0.1f);
   }
   
