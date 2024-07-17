@@ -52,7 +52,7 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
 
   ESP_LOGV(TAG, "Command group: %d", data[6]);
   //   8      0x10           Number of cells                  16
-  uint8_t cells = (this->override_cell_count_) ? this->override_cell_count_ : data[8];
+  uint8_t cells = (this->override_cell_count_) ? this->override_cell_count_ : data[7];
 
   ESP_LOGV(TAG, "Number of cells: %d", cells);
   //   9      0x0C 0xD7      Cell voltage 1                   3287 * 0.001f = 3.287         V
@@ -86,7 +86,7 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   this->publish_state_(this->delta_cell_voltage_sensor_, max_cell_voltage - min_cell_voltage);
   this->publish_state_(this->average_cell_voltage_sensor_, average_cell_voltage);
 
-  uint8_t offset = 8 + (cells * 2);
+  uint8_t offset = 9 + (cells * 2);
 
   //   41     0x06           Number of temperatures           6                             V
   uint8_t temperature_sensors = data[offset];
@@ -98,7 +98,7 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   //   48     0x0B 0xA6      Temperature sensor 4             (2982 - 2731) * 0.1f = 25.1          °C
   //   50     0x0B 0xA5      Environment temperature          (2981 - 2731) * 0.1f = 25.0          °C
   //   52     0x0B 0xA2      Mosfet temperature               (2978 - 2731) * 0.1f = 24.7          °C
-  for (uint8_t i = 0; i < std::min((uint8_t) 6, temperature_sensors); i++) {
+  for (uint8_t i = 0; i < std::min((uint8_t) 7, temperature_sensors); i++) {
     float raw_temperature = (float) seplos_get_16bit(offset + 1 + (i * 2));
     this->publish_state_(this->temperatures_[i].temperature_sensor_, (raw_temperature - 2731.0f) * 0.1f);
   }
