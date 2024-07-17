@@ -13,7 +13,7 @@ void SeplosBms::on_seplos_modbus_data(const std::vector<uint8_t> &data) {
   // 14             77           142 (0x8E)
   // 15             79           146 (0x92)
   // 16             81           150 (0x96)
-  if (data.size() >= 44 && data[8] >= 8 && data[8] <= 16) {
+  if (data.size() >= 44 && data[7] >= 8 && data[7] <= 16) {
     this->on_telemetry_data_(data);
     return;
   }
@@ -30,22 +30,44 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   ESP_LOGI(TAG, "Telemetry frame (%d bytes) received", data.size());
   ESP_LOGVV(TAG, "  %s", format_hex_pretty(&data.front(), data.size()).c_str());
 
+    // 03EC  10A
+    // 1363  49.63
+    // 0A9E  27.18 Ah
+    // 04    保留
+    // 2710  100Ah
+    // 0002  2%
+    // 1B64  70.12Ah
+    // 0000  0
+    // E191  57745
   // ->
-  // 0x2000460010960001100CD70CE90CF40CD60CEF0CE50CE10CDC0CE90CF00CE80CEF0CEA0CDA0CDE0CD8060BA60BA00B970BA60BA50BA2FD5C14A0344E0A426803134650004603E8149F0000000000000000
-  // 0x26004600307600011000000000000000000000000000000000000000000000000000000000000000000608530853085308530BAC0B9000000000002D0213880001E6B8
-  //
-  // *Data*
-  //
+  21 00 46 00 D0 7C 01 
+  0C DF 0C DD 0C DF 0C DE 0C DF 0C DF 0C DE 0C DE 0C E0 0C DD 0C D8 0C DC 0C E2 0C DE 0C DE 
+  07 
+  0C 06 0C 05 0C 02 0C 03 0C 2A 0C 10 0C 0E 
+  01 FD 
+  13 4D
+  09 65 04 27 10 00 02 18 64 00 00 E1 9A
   // Byte   Address Content: Description                      Decoded content               Coeff./Unit
-  //   0    0x20             Protocol version      VER        2.0
-  //   1    0x00             Device address        ADR
+  //   0    0x21             Protocol version      VER        2.1
+  //   1    0x00             Device address        ADR        0
   //   2    0x46             Device type           CID1       Lithium iron phosphate battery BMS
   //   3    0x00             Function code         CID2       0x00: Normal, 0x01 VER error, 0x02 Chksum error, ...
-  //   4    0x10             Data length checksum  LCHKSUM
-  //   5    0x96             Data length           LENID      150 / 2 = 75
-  //   6      0x00           Data flag
-  //   7      0x01           Command group
-  ESP_LOGV(TAG, "Command group: %d", data[7]);
+  //   4    0xD0             Data length checksum  LCHKSUM
+  //   5    0x7C             Data length           LENID      124 / 2 = 62
+  //   6    0x01             Command group
+  //   7    0x0F             Cells
+  //   8 ~ 38  0C DF 0C DD 0C DF 0C DE 0C DF 0C DF 0C DE 0C DE 0C E0 0C DD 0C D8 0C DC 0C E2 0C DE 0C DE Cell 1 ~ 15  
+  //   39  0x07              Temperature Count
+  //   40~54  0C 06 0C 05 0C 02 0C 03 0C 2A 0C 10 0C 0E Temperature 1~7   eg: (3078 - 2731) * 0.1f = 34.7  eg: (3086 - 2731) * 0.1f = 35.5 
+  // 55~56  0x01 0xFD        Charge/discharge current      509 * 0.01f = 5.09A
+  // 57~58  0x13 0x4D        Total battery voltage         4941 * 0.01f = 49.41V
+  // 59~60  0x4D 0x09        Residual capacity             19721 * 0.01f = 197.21Ah
+ 
+   // 4D 09 65 04 27 10 00 02 18 64 00 00 E1 9A
+  // *Data*
+  //
+
+  ESP_LOGV(TAG, "Command group: %d", data[6]);
   //   8      0x10           Number of cells                  16
   uint8_t cells = (this->override_cell_count_) ? this->override_cell_count_ : data[8];
 
@@ -81,7 +103,7 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   this->publish_state_(this->delta_cell_voltage_sensor_, max_cell_voltage - min_cell_voltage);
   this->publish_state_(this->average_cell_voltage_sensor_, average_cell_voltage);
 
-  uint8_t offset = 9 + (cells * 2);
+  uint8_t offset = 8 + (cells * 2);
 
   //   41     0x06           Number of temperatures           6                             V
   uint8_t temperature_sensors = data[offset];
@@ -174,13 +196,14 @@ void SeplosBms::dump_config() {
   LOG_SENSOR("", "Cell Voltage 13", this->cells_[12].cell_voltage_sensor_);
   LOG_SENSOR("", "Cell Voltage 14", this->cells_[13].cell_voltage_sensor_);
   LOG_SENSOR("", "Cell Voltage 15", this->cells_[14].cell_voltage_sensor_);
-  LOG_SENSOR("", "Cell Voltage 16", this->cells_[15].cell_voltage_sensor_);
+  // LOG_SENSOR("", "Cell Voltage 16", this->cells_[15].cell_voltage_sensor_);
   LOG_SENSOR("", "Temperature 1", this->temperatures_[0].temperature_sensor_);
   LOG_SENSOR("", "Temperature 2", this->temperatures_[1].temperature_sensor_);
   LOG_SENSOR("", "Temperature 3", this->temperatures_[2].temperature_sensor_);
   LOG_SENSOR("", "Temperature 4", this->temperatures_[3].temperature_sensor_);
   LOG_SENSOR("", "Temperature 5", this->temperatures_[4].temperature_sensor_);
   LOG_SENSOR("", "Temperature 6", this->temperatures_[5].temperature_sensor_);
+  LOG_SENSOR("", "Temperature 7", this->temperatures_[6].temperature_sensor_);
   LOG_SENSOR("", "Total Voltage", this->total_voltage_sensor_);
   LOG_SENSOR("", "Current", this->current_sensor_);
   LOG_SENSOR("", "Power", this->power_sensor_);
