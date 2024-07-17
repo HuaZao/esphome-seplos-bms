@@ -30,23 +30,6 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   ESP_LOGI(TAG, "Telemetry frame (%d bytes) received", data.size());
   ESP_LOGVV(TAG, "  %s", format_hex_pretty(&data.front(), data.size()).c_str());
 
-    // 03EC  10A
-    // 1363  49.63
-    // 0A9E  27.18 Ah
-    // 04    保留
-    // 2710  100Ah
-    // 0002  2%
-    // 1B64  70.12Ah
-    // 0000  0
-    // E191  57745
-  // ->
-  21 00 46 00 D0 7C 01 
-  0C DF 0C DD 0C DF 0C DE 0C DF 0C DF 0C DE 0C DE 0C E0 0C DD 0C D8 0C DC 0C E2 0C DE 0C DE 
-  07 
-  0C 06 0C 05 0C 02 0C 03 0C 2A 0C 10 0C 0E 
-  01 FD 
-  13 4D
-  09 65 04 27 10 00 02 18 64 00 00 E1 9A
   // Byte   Address Content: Description                      Decoded content               Coeff./Unit
   //   0    0x21             Protocol version      VER        2.1
   //   1    0x00             Device address        ADR        0
