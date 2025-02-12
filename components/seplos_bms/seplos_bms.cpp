@@ -11,7 +11,7 @@ static const char *const TAG = "seplos_bms";
 #define SEPLOS_PROTOCOL_V21 0x21
 #define SEPLOS_PROTOCOL_V25 0x25
 
-// 字段偏移量配置
+// 字段偏移量配置（根据你的数据样本修正）
 typedef struct {
   uint8_t cell_count_offset;       // 电池数量字段偏移
   uint8_t cell_voltages_start;     // 电池电压起始偏移
@@ -28,7 +28,7 @@ typedef struct {
   uint8_t port_voltage_offset;     // 端口电压偏移
 } seplos_offsets_t;
 
-// 协议版本字段映射表
+// 协议版本字段映射表（修正后的 2.5 版本偏移量）
 static const std::map<uint8_t, seplos_offsets_t> OFFSET_MAP = {
     {SEPLOS_PROTOCOL_V21,
      {
@@ -46,21 +46,21 @@ static const std::map<uint8_t, seplos_offsets_t> OFFSET_MAP = {
          .soh_offset = 69,
          .port_voltage_offset = 71,
      }},
-    {SEPLOS_PROTOCOL_V25,
+    {SEPLOS_PROTOCOL_V25,  // 根据你的数据样本修正
      {
-         .cell_count_offset = 8,
-         .cell_voltages_start = 9,
-         .temp_sensor_count_offset = 41,
-         .temp_sensors_start = 42,
-         .current_offset = 54,
-         .total_voltage_offset = 56,
-         .residual_capacity_offset = 58,
-         .battery_capacity_offset = 61,
-         .soc_offset = 63,
-         .rated_capacity_offset = 65,
-         .cycles_offset = 67,
-         .soh_offset = 69,
-         .port_voltage_offset = 71,
+         .cell_count_offset = 8,          // 数据样本中第8字节是 0x0F (15 cells)
+         .cell_voltages_start = 9,        // 电压从第9字节开始 (0x0CF9)
+         .temp_sensor_count_offset = 39,   // 第39字节是温度数量 0x06
+         .temp_sensors_start = 40,        // 温度从第40字节开始
+         .current_offset = 52,            // 电流在第52-53字节 (0x005C)
+         .total_voltage_offset = 54,       // 总电压在54-55字节 (0xC27B)
+         .residual_capacity_offset = 56,   // 剩余容量在56-57字节 (0x0801)
+         .battery_capacity_offset = 60,    // 电池容量在60-61字节 (0x0028)
+         .soc_offset = 62,                 // SOC在62-63字节 (0x0BB8)
+         .rated_capacity_offset = 64,      // 额定容量在64-65字节 (未在样本中)
+         .cycles_offset = 66,              // 循环次数在66-67字节 (未在样本中)
+         .soh_offset = 68,                 // SOH在68-69字节 (未在样本中)
+         .port_voltage_offset = 70,        // 端口电压在70-71字节 (0xE35A)
      }}};
 
 void SeplosBms::on_seplos_modbus_data(const std::vector<uint8_t> &data) {
@@ -81,7 +81,7 @@ void SeplosBms::on_seplos_modbus_data(const std::vector<uint8_t> &data) {
 
 void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   auto seplos_get_16bit = [&](size_t i) -> uint16_t {
-    return (uint16_t(data[i + 0]) << 8) | (uint16_t(data[i + 1]) << 0);
+    return (uint16_t(data[i]) << 8) | (uint16_t(data[i + 1]) << 0); // 修复括号错误
   };
 
   const uint8_t protocol_version = data[0];
@@ -100,13 +100,17 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   uint8_t min_voltage_cell = 0;
   uint8_t max_voltage_cell = 0;
 
-  // 解析电池电压
+  // 解析电池电压（根据你的数据样本）
   for (uint8_t i = 0; i < std::min((uint8_t) 16, cells); i++) {
     const size_t pos = offsets.cell_voltages_start + (i * 2);
-    if (pos + 2 > data.size()) break;
+    if (pos + 1 >= data.size()) break; // 确保不越界
 
-    float cell_voltage = seplos_get_16bit(pos) * 0.001f;
+    uint16_t raw_voltage = seplos_get_16bit(pos);
+    float cell_voltage = raw_voltage * 0.001f;
     average_cell_voltage += cell_voltage;
+
+    // 调试输出原始数据
+    ESP_LOGVV(TAG, "Cell %d raw: 0x%04X, voltage: %.3f V", i+1, raw_voltage, cell_voltage);
 
     if (cell_voltage < min_cell_voltage) {
       min_cell_voltage = cell_voltage;
@@ -120,6 +124,7 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   }
   average_cell_voltage /= cells;
 
+  // 发布统计电压
   this->publish_state_(this->min_cell_voltage_sensor_, min_cell_voltage);
   this->publish_state_(this->max_cell_voltage_sensor_, max_cell_voltage);
   this->publish_state_(this->min_voltage_cell_sensor_, (float) min_voltage_cell);
@@ -136,22 +141,31 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
 
   for (uint8_t i = 0; i < std::min((uint8_t) 6, temperature_sensors); i++) {
     const size_t pos = offsets.temp_sensors_start + (i * 2);
-    if (pos + 2 > data.size()) break;
+    if (pos + 1 >= data.size()) break;
 
-    float raw_temp = seplos_get_16bit(pos);
-    this->publish_state_(this->temperatures_[i].temperature_sensor_, (raw_temp - 2731.0f) * 0.1f);
+    uint16_t raw_temp = seplos_get_16bit(pos);
+    float temperature = (raw_temp - 2731.0f) * 0.1f;
+    ESP_LOGVV(TAG, "Temp %d raw: 0x%04X, value: %.1f C", i+1, raw_temp, temperature);
+    this->publish_state_(this->temperatures_[i].temperature_sensor_, temperature);
   }
-  offset = offsets.temp_sensors_start + (temperature_sensors * 2);
 
-  // 解析电流和电压
-  if (offsets.current_offset + 2 <= data.size()) {
-    float current = (int16_t) seplos_get_16bit(offsets.current_offset) * 0.01f;
+  // 解析电流和总电压（关键修正部分）
+  if (offsets.current_offset + 1 < data.size()) {
+    // 电流处理（有符号16位）
+    int16_t raw_current = (int16_t)seplos_get_16bit(offsets.current_offset);
+    float current = raw_current * 0.01f;
+    ESP_LOGV(TAG, "Current raw: 0x%04X (%d), value: %.2f A", 
+            raw_current, raw_current, current);
     this->publish_state_(this->current_sensor_, current);
 
-    if (offsets.total_voltage_offset + 2 <= data.size()) {
-      float total_voltage = seplos_get_16bit(offsets.total_voltage_offset) * 0.01f;
+    // 总电压处理
+    if (offsets.total_voltage_offset + 1 < data.size()) {
+      uint16_t raw_voltage = seplos_get_16bit(offsets.total_voltage_offset);
+      float total_voltage = raw_voltage * 0.01f;
+      ESP_LOGV(TAG, "Total voltage raw: 0x%04X, value: %.2f V", raw_voltage, total_voltage);
       this->publish_state_(this->total_voltage_sensor_, total_voltage);
 
+      // 计算功率
       float power = total_voltage * current;
       this->publish_state_(this->power_sensor_, power);
       this->publish_state_(this->charging_power_sensor_, std::max(0.0f, power));
@@ -159,21 +173,24 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
     }
   }
 
-  // 解析容量相关数据
-  auto safe_publish = [&](sensor::Sensor *sensor, size_t pos, float coeff) {
-    // if (pos + 2 <= data.size()) {
-    //   this->publish_state_(sensor, seplos_get_16bit(pos) * coeff);
-    // }
-      this->publish_state_(sensor, seplos_get_16bit(pos) * coeff);
+  // 安全发布数据的lambda（添加调试日志）
+  auto safe_publish = [&](sensor::Sensor *sensor, size_t pos, float coeff, const char* name) {
+    if (pos + 1 < data.size()) {
+      uint16_t raw = seplos_get_16bit(pos);
+      float value = raw * coeff;
+      ESP_LOGV(TAG, "%s raw: 0x%04X, value: %.2f", name, raw, value);
+      this->publish_state_(sensor, value);
+    }
   };
 
-  safe_publish(this->residual_capacity_sensor_, offsets.residual_capacity_offset, 0.01f);
-  safe_publish(this->battery_capacity_sensor_, offsets.battery_capacity_offset, 0.01f);
-  safe_publish(this->state_of_charge_sensor_, offsets.soc_offset, 0.1f);
-  safe_publish(this->rated_capacity_sensor_, offsets.rated_capacity_offset, 0.01f);
-  safe_publish(this->charging_cycles_sensor_, offsets.cycles_offset, 1.0f);
-  safe_publish(this->state_of_health_sensor_, offsets.soh_offset, 0.1f);
-  safe_publish(this->port_voltage_sensor_, offsets.port_voltage_offset, 0.01f);
+  // 解析其他参数
+  safe_publish(this->residual_capacity_sensor_, offsets.residual_capacity_offset, 0.01f, "Residual Capacity");
+  safe_publish(this->battery_capacity_sensor_, offsets.battery_capacity_offset, 0.01f, "Battery Capacity");
+  safe_publish(this->state_of_charge_sensor_, offsets.soc_offset, 0.1f, "SOC");
+  safe_publish(this->rated_capacity_sensor_, offsets.rated_capacity_offset, 0.01f, "Rated Capacity");
+  safe_publish(this->charging_cycles_sensor_, offsets.cycles_offset, 1.0f, "Cycles");
+  safe_publish(this->state_of_health_sensor_, offsets.soh_offset, 0.1f, "SOH");
+  safe_publish(this->port_voltage_sensor_, offsets.port_voltage_offset, 0.01f, "Port Voltage");
 }
 
 void SeplosBms::dump_config() {
