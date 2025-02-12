@@ -161,7 +161,12 @@ void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
     // 总电压处理
     if (offsets.total_voltage_offset + 1 < data.size()) {
       uint16_t raw_voltage = seplos_get_16bit(offsets.total_voltage_offset);
-      float total_voltage = raw_voltage * 0.01f;
+      float total_voltage = 0.00;
+      if(protocol_version == SEPLOS_PROTOCOL_V21){
+        total_voltage = raw_voltage * 0.01f
+      }else{
+        total_voltage = raw_voltage * 0.001f
+      }
       ESP_LOGV(TAG, "Total voltage raw: 0x%04X, value: %.2f V", raw_voltage, total_voltage);
       this->publish_state_(this->total_voltage_sensor_, total_voltage);
 
