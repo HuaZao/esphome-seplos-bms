@@ -81,7 +81,7 @@ void SeplosBms::on_seplos_modbus_data(const std::vector<uint8_t> &data) {
 
 void SeplosBms::on_telemetry_data_(const std::vector<uint8_t> &data) {
   auto seplos_get_16bit = [&](size_t i) -> uint16_t {
-    return (uint16_t(data[i + 0]) << 8 | (uint16_t(data[i + 1]) << 0;
+    return (uint16_t(data[i + 0]) << 8) | (uint16_t(data[i + 1]) << 0);
   };
 
   const uint8_t protocol_version = data[0];
